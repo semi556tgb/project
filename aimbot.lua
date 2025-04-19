@@ -1,7 +1,7 @@
--- aimbot.lua
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 
@@ -9,7 +9,7 @@ local Aimbot = {}
 Aimbot.Enabled = false
 Aimbot.Keybind = Enum.UserInputType.MouseButton2 -- Default
 Aimbot.Target = nil
-Aimbot.Prediction = 0.165 -- Adjust as needed
+Aimbot.Prediction = 0.165 -- Default prediction
 
 function Aimbot:GetClosestPlayer()
     local MaxDistance = math.huge
@@ -46,22 +46,15 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Input handling
-local UserInputService = game:GetService("UserInputService")
-
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
-    
     if input.UserInputType == Aimbot.Keybind then
-        if _G.AimbotMasterSwitch then
-            Aimbot.Target = Aimbot:GetClosestPlayer()
-        end
+        Aimbot.Target = Aimbot:GetClosestPlayer()
     end
 end)
 
 UserInputService.InputEnded:Connect(function(input, gameProcessed)
     if gameProcessed then return end
-
     if input.UserInputType == Aimbot.Keybind then
         Aimbot.Target = nil
     end
