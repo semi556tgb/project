@@ -1,89 +1,83 @@
 -- aimbot.lua
 
+local aimbot = {}
+
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
 local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
+local CurrentTarget = nil
+local AimbotEnabled = false
+local AimKey = Enum.KeyCode.Unknown
 
-local Aimbot = {}
-Aimbot.Enabled = false
-Aimbot.Keybind = Enum.UserInputType.MouseButton2 -- Default
-Aimbot.Mode = "Toggle" -- "Always", "Toggle", "Hold"
-Aimbot.Prediction = 0.165
-Aimbot.Target = nil
-Aimbot.IsKeyDown = false
+function aimbot.SetKeybind(keycode)
+    AimKey = keycode
+end
 
-function Aimbot:GetClosestPlayer()
-    local MaxDistance = math.huge
-    local TargetPlayer = nil
+function aimbot.Toggle(state)
+    AimbotEnabled = state
+    if not state then
+        CurrentTarget = nil
+    end
+end
 
-    for _, Player in ipairs(Players:GetPlayers()) do
-        if Player ~= LocalPlayer and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-            local HRP = Player.Character.HumanoidRootPart
-            local PredictedPos = HRP.Position + (HRP.Velocity * Aimbot.Prediction)
-            local ScreenPoint, OnScreen = workspace.CurrentCamera:WorldToViewportPoint(PredictedPos)
-            local Distance = (Vector2.new(ScreenPoint.X, ScreenPoint.Y) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
+function aimbot.GetClosestTarget()
+    local closest = nil
+    local shortestDistance = math.huge
 
-            if OnScreen and Distance < MaxDistance then
-                MaxDistance = Distance
-                TargetPlayer = Player
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local pos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+            if onScreen then
+                local distance = (Vector2.new(pos.X, pos.Y) - UserInputService:GetMouseLocation()).Magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closest = player
+                end
             end
         end
     end
 
-    return TargetPlayer
+    return closest
 end
 
-function Aimbot:LockOn()
-    if self.Target and self.Target.Character and self.Target.Character:FindFirstChild("HumanoidRootPart") then
-        local HRP = self.Target.Character.HumanoidRootPart
-        local PredictedPos = HRP.Position + (HRP.Velocity * self.Prediction)
-        workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, PredictedPos)
+function aimbot.HighlightTarget(player)
+    for _, p in pairs(Players:GetPlayers()) do
+        if p.Character and p.Character:FindFirstChild("Highlight") then
+            p.Character.Highlight.Enabled = false
+        end
+    end
+
+    if player and player.Character then
+        local highlight = player.Character:FindFirstChild("Highlight")
+        if not highlight then
+            highlight = Instance.new("Highlight")
+            highlight.Parent = player.Character
+        end
+        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.Enabled = true
     end
 end
 
-RunService.Heartbeat:Connect(function()
-    if not Aimbot.Enabled then return end
+function aimbot.LockOntoTarget()
+    CurrentTarget = aimbot.GetClosestTarget()
+    aimbot.HighlightTarget(CurrentTarget)
+end
 
-    if Aimbot.Mode == "Always" then
-        Aimbot.Target = Aimbot:GetClosestPlayer()
-        Aimbot:LockOn()
-
-    elseif Aimbot.Mode == "Hold" then
-        if Aimbot.IsKeyDown then
-            Aimbot.Target = Aimbot:GetClosestPlayer()
-            Aimbot:LockOn()
-        end
-
-    elseif Aimbot.Mode == "Toggle" then
-        if Aimbot.Target then
-            Aimbot:LockOn()
-        end
+UserInputService.InputBegan:Connect(function(input, processed)
+    if not processed and input.KeyCode == AimKey then
+        aimbot.LockOntoTarget()
     end
 end)
 
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.UserInputType == Aimbot.Keybind then
-        if Aimbot.Mode == "Hold" then
-            Aimbot.IsKeyDown = true
-        elseif Aimbot.Mode == "Toggle" then
-            if Aimbot.Target then
-                Aimbot.Target = nil
-            else
-                Aimbot.Target = Aimbot:GetClosestPlayer()
-            end
-        end
+RunService.RenderStepped:Connect(function()
+    if AimbotEnabled and CurrentTarget and CurrentTarget.Character and CurrentTarget.Character:FindFirstChild("HumanoidRootPart") then
+        local aimPart = CurrentTarget.Character.HumanoidRootPart
+        local cam = workspace.CurrentCamera
+        cam.CFrame = CFrame.new(cam.CFrame.Position, aimPart.Position)
     end
 end)
 
-UserInputService.InputEnded:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.UserInputType == Aimbot.Keybind and Aimbot.Mode == "Hold" then
-        Aimbot.IsKeyDown = false
-        Aimbot.Target = nil
-    end
-end)
-
-return Aimbot
+return aimbot
