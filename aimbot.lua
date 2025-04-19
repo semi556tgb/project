@@ -1,15 +1,18 @@
+-- aimbot.lua
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 
 local Aimbot = {}
 Aimbot.Enabled = false
 Aimbot.Keybind = Enum.UserInputType.MouseButton2 -- Default
+Aimbot.Mode = "Toggle" -- "Always", "Toggle", "Hold"
+Aimbot.Prediction = 0.165
 Aimbot.Target = nil
-Aimbot.Prediction = 0.165 -- Default prediction
+Aimbot.IsKeyDown = false
 
 function Aimbot:GetClosestPlayer()
     local MaxDistance = math.huge
@@ -33,29 +36,52 @@ function Aimbot:GetClosestPlayer()
 end
 
 function Aimbot:LockOn()
-    local target = self:GetClosestPlayer()
-    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-        local PredictedPos = target.Character.HumanoidRootPart.Position + (target.Character.HumanoidRootPart.Velocity * self.Prediction)
+    if self.Target and self.Target.Character and self.Target.Character:FindFirstChild("HumanoidRootPart") then
+        local HRP = self.Target.Character.HumanoidRootPart
+        local PredictedPos = HRP.Position + (HRP.Velocity * self.Prediction)
         workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, PredictedPos)
     end
 end
 
 RunService.Heartbeat:Connect(function()
-    if Aimbot.Enabled and Aimbot.Target then
+    if not Aimbot.Enabled then return end
+
+    if Aimbot.Mode == "Always" then
+        Aimbot.Target = Aimbot:GetClosestPlayer()
         Aimbot:LockOn()
+
+    elseif Aimbot.Mode == "Hold" then
+        if Aimbot.IsKeyDown then
+            Aimbot.Target = Aimbot:GetClosestPlayer()
+            Aimbot:LockOn()
+        end
+
+    elseif Aimbot.Mode == "Toggle" then
+        if Aimbot.Target then
+            Aimbot:LockOn()
+        end
     end
 end)
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.UserInputType == Aimbot.Keybind then
-        Aimbot.Target = Aimbot:GetClosestPlayer()
+        if Aimbot.Mode == "Hold" then
+            Aimbot.IsKeyDown = true
+        elseif Aimbot.Mode == "Toggle" then
+            if Aimbot.Target then
+                Aimbot.Target = nil
+            else
+                Aimbot.Target = Aimbot:GetClosestPlayer()
+            end
+        end
     end
 end)
 
 UserInputService.InputEnded:Connect(function(input, gameProcessed)
     if gameProcessed then return end
-    if input.UserInputType == Aimbot.Keybind then
+    if input.UserInputType == Aimbot.Keybind and Aimbot.Mode == "Hold" then
+        Aimbot.IsKeyDown = false
         Aimbot.Target = nil
     end
 end)
